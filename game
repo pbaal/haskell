@@ -1,0 +1,93 @@
+module Main where
+
+{-
+ This is a litte Toy-game where you should increase
+ or decrease an internal Counter by pressing u (up)
+ or d (down) until you quit (q).
+
+ Only one Function needs to be implemented and the
+ steps are laid out there.
+
+ Tasks:
+ - Write the Input-Function getInput
+ - Write the Main-Loop.
+-}
+
+import Control.Monad
+import System.IO
+import Control.Monad.Trans.RWS
+import Control.Monad.IO.Class
+import Data.Functor
+
+data Input = Up
+           | Down
+           | Quit
+           | Invalid
+           | Lefti
+           | Righti
+           deriving (Show, Eq)
+
+data Env = Env
+           { upKey   :: Char
+           , downKey :: Char
+           , quitKey :: Char
+           , leftKey :: Char
+           , rightKey :: Char
+           }
+
+env :: Env
+env = Env 'u' 'd' 'q' 'l' 'r'
+
+data State = State 
+           { counter :: Int
+             , counter2 :: Int
+           }
+
+initialState :: State
+initialState = State 0 0
+
+getInput :: RWST Env () State IO Input
+getInput = do
+            e <- ask
+            c <- liftIO getChar
+            return $ getInputfromEnv c e
+
+getInputfromEnv :: Char -> Env -> Input
+getInputfromEnv c e
+                | c ==  upKey e   =  Up
+                | c ==  downKey e =  Down
+                | c ==  quitKey e =  Quit
+                | c ==  leftKey e =  Lefti
+                | c ==  rightKey e = Righti
+                | otherwise       =  Invalid
+
+main :: IO ()
+main = do
+        hSetBuffering stdin NoBuffering
+        hSetEcho stdin False
+        score <- fst <$> execRWST mainLoop env initialState
+        putStrLn $ "Your Score was: " ++ show (counter score) ++ " Up and " ++ show (counter2 score) ++ " Right"
+
+modScore :: Input -> State -> State
+modScore Up s = s { counter = counter s +1 }
+modScore Down s = s { counter = counter s -1}
+modScore Lefti s = s { counter2 = counter2 s -1}
+modScore Righti s = s { counter2 = counter2 s +1}
+modScore _ s = s
+
+mainLoop :: RWST Env () State IO ()
+mainLoop = do
+        e <- ask
+        f <- getInput 
+        oldScore <- get
+        newScore <- return $ modScore f oldScore
+        put newScore
+        liftIO $ print $ show f ++ ": (" ++ show (counter newScore) ++"/"++ show (counter2 newScore) ++")"
+        unless (f == Quit) mainLoop
+        
+        --1. get Input
+        --2. Increase State by 1 if Up is pressed, decrease by 1 if Down is pressed
+        --   Catch ALL cases
+        --3. get the new state
+        --4. Print Line "<Action>: <Current counter value>"
+        --5. Loop until Quit is pressed
